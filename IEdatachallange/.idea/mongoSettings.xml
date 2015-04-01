@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="MongoConfiguration">
+    <option name="serverConfigurations">
+      <list>
+        <ServerConfiguration>
+          <option name="label" value="hotelapp_siteuseradmin" />
+          <option name="password" value="password" />
+          <option name="serverUrls">
+            <list>
+              <option value="localhost:27017" />
+            </list>
+          </option>
+          <option name="userDatabase" value="hotelapp" />
+          <option name="username" value="siteuseradmin" />
+        </ServerConfiguration>
+      </list>
+    </option>
+    <option name="shellPath" value="/data/db/bin/mongo" />
+  </component>
+</project>

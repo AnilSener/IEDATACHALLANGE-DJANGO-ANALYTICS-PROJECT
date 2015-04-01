@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+{% extends "homebase.html" %}
+{% load django_tables2 %}
+{% load geojson_tags %}
+{% load staticfiles %}
+{% block head %}
+     <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <script src="{{ STATIC_URL }}js/jsnetworkx.js"></script>
+
+    <script src="{{ STATIC_URL }}js/jquery.form.js"></script>
+
+
+    <script src="{{ STATIC_URL }}js/spin.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}js/moment.js"></script>
+<script src="{{ STATIC_URL }}js/bootstrap-datetimepicker.min.js"></script>
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap.min.css">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="{{ STATIC_URL }}css/bootstrap-theme.min.css">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="{{ STATIC_URL }}js/bootstrap.min.js"></script>
+<script type="text/javascript" src="{{ STATIC_URL }}js/transition.js"></script>
+<script type="text/javascript" src="{{ STATIC_URL }}js/collapse.js"></script>
+<link rel="stylesheet" src="{{ STATIC_URL }}css/jquery.datetimepicker.css"/>
+  <script type="text/javascript" src="{{ STATIC_URL }}js/jquery.datetimepicker.js"></script>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+  <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+  <link rel="stylesheet" href="/resources/demos/style.css">
+
+
+{% if form %}
+{{ form.media }}
+{% endif %}
+
+{% endblock %}
+
+{% block search_box %}
+ <style>
+    #form-demo {
+    width: 203px;
+    color: #A0A7B2;
+    position: absolute;
+    z-index: 999;
+    top: 168px;
+    left: 13px;
+    padding: 6px 8px;
+    background-color: white;
+    -moz-box-shadow: 0px 3px 4px #000;
+    -webkit-box-shadow: 0px 3px 4px #000;
+    box-shadow: 0px 3px 4px #000;
+        fill-opacity: 0.8;
+        opacity: 0.8;
+}
+    #menubuttondiv {
+    color: #A0A7B2;
+    position: absolute;
+    z-index: 999;
+    top:2px;
+    left: 155px;;
+    padding: 4px 4px;
+    -moz-box-shadow: 0px 3px 4px #000;
+    -webkit-box-shadow: 0px 3px 4px #000;
+    fill-opacity: 0.8;
+    opacity: 0.8;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+#tabs {
+display: none;
+    height: 650px;
+    width: 800px;
+    color: #A0A7B2;
+    position: absolute;
+    z-index: 999;
+    top:40px;
+    left: 220px;;
+    padding: 6px 8px;
+    -moz-box-shadow: 0px 3px 4px #000;
+    -webkit-box-shadow: 0px 3px 4px #000;
+    fill-opacity: 0.8;
+    opacity: 0.8;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+#tabs div {
+    height: 510px;
+    width: 780px;
+    color: #000000;
+    align-content: center;
+    fill-opacity: 0.8;
+    opacity: 0.8;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+
+}
+
+  #button { padding: .5em 1em; text-decoration: none; }
+
+  #effect h3 { margin: 0; padding: 0.4em; text-align: center; }
+    </style>
+<script type="text/javascript" src="{{ STATIC_URL }}js/toggling.js">
+
+</script>
+<div id="menubuttondiv">
+<p><button id="menubutton" class="ui-state-default ui-corner-all">MENU</button></p>
+</div>
+<div id="form-demo" class="row-field">
+{% if form %}
+    <label for="date"><h4>Date/Hour Search</h4></label>
+<form id="dateTimeExample" action="{% url 'hotelapp.views.getPopulation' %}" method="POST" class="form-group">
+{% csrf_token %}
+{{ form.as_table }}
+<br/>
+<input id="submit" type="submit" value="Search" class="btn">
+</form>
+{% endif %}
+{% if datetime %}
+{{ datetime.date_time }}
+{% endif %}
+</div>
+<div id="tabs" class="ui-widget-content ui-corner-all">
+<p><button id="button" class="ui-state-default ui-corner-all">CLOSE</button></p>
+  <ul>
+    <li><a href="#sna">Hotel-Attraction Network</a></li>
+      <li><a href="#packages">Travel Package Recommendations</a></li>
+      <li><a href="#sentiment">Customer Sentiment Analysis</a></li>
+  </ul>
+    <div id="packages" >
+
+    </div>
+<div id="sentiment" >
+
+    </div>
+<div id="sna" >
+
+    </div>
+    </div>
+    <script>
+  $(function() {
+    $( "#tabs" ).tabs();
+  });
+
+    </script>
+{% endblock %}
+
+{% block before_body_close %}
+
+<!-- OpenStreetMap base layer js -->
+<style>
+
+    .leaflet-container {  /* all maps */
+
+    }
+
+    #map {
+        width:  100%;
+        height: 100%;
+        position: absolute;
+        z-index: -999;
+        top: 0px;
+        right: 0px;
+        border: 3px solid #AAA;
+
+    }
+.legend {
+    width: 110px;
+    line-height: 18px;
+    color: #555;
+}
+.legend i {
+    width: 18px;
+    height: 18px;
+    float: left;
+    margin-right: 8px;
+    opacity: 0.7;
+}
+
+.info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+.info h4 {
+    margin: 0 0 5px;
+    color: #777;
+}
+
+
+</style>
+
+
+
+
+<script type="text/javascript">
+
+var userHotelJson={{ userHotelJson | safe }}
+                L.geoJson(userHotelJson, {onEachFeature: onEachUserHotelFeature})
+
+   var usergeom;
+var userHotelName;
+var userHotelID;
+function onEachUserHotelFeature(feature, layer) {
+    usergeom = feature.geometry.coordinates;
+    userHotelName = feature.properties.name
+    userHotelID = feature.hotelID
+}
+
+/////////////////////////////////////// GRAPH SCRIPT ////////////////////////
+ var hotelnodelist=[];
+    var attractionnodelist=[];
+    var edgelist=[];
+    var weightlist=[];
+    var G = jsnx.DiGraph();
+var req = $.ajax({
+url: "/hotelapp/get-graphedges/",
+dataType: 'json',
+    data : "graphjson",
+    success: function(data) {
+
+
+        $.each(JSON.parse(data), function(index, element) {
+                if (userHotelID!=element["hotelID"]) {
+                    hotelnodelist.push(element["hotelName"])
+                }
+                attractionnodelist.push(element["attractionName"])
+                edgelist.push([element["hotelName"],element["attractionName"],element["userCount"]])
+                weightlist.push(element["userCount"])
+
+        });
+        //console.log(edgelist)
+        G.add_node(userHotelName, {color: 'red'});
+        G.add_nodes_from(hotelnodelist, {color: 'green'});
+        G.add_nodes_from(attractionnodelist, {color: 'blue'});
+        G.add_weighted_edges_from(edgelist);
+        var degrees = G.degree();
+        jsnx.draw(G, {
+            element: '#sna',
+            weighted: true,
+            with_labels: true,
+            node_style: {
+                fill: function(d) {
+                    return d.data.color;
+                    }
+                },
+            edge_style: {
+            'stroke': function(d) {
+            return d.data.color|| '#AAA';
+            },
+            'stroke-width': 2
+            }
+
+            });
+
+    }
+
+});
+
+////////////////////////////////////////////////GRAPH SCRIPT END ////////////////////////////
+var req = $.ajax({
+url: "/hotelapp/get-hotelsentiment/",
+dataType: 'json',
+    data : "hotelsentimentjson",
+    success: function(data) {
+
+
+        $.each(JSON.parse(data), function(index, element) {
+
+                var div = document.createElement('div');
+                div.id = "hotelsentiment";
+                div.innerHTML = "<h3><b>Hotel Sentiment Results</b></h3><br/><p><img src='{{ STATIC_URL }}images/room.png' height='70' width='70'/> <font size=9><b>"+element["roomScore"]+" / 5</b></font></p><p><img src='{{ STATIC_URL }}images/food.jpg' height='70' width='70'/> <font size=9><b>"+element["foodScore"]+" / 5</b></font></p><p><img src='{{ STATIC_URL }}images/staff.jpg' height='70' width='70'/> <font size=9><b>"+element["staffScore"]+" / 5</b></font></p>";
+                 document.getElementById("sentiment").appendChild(div);
+        });
+        //console.log(edgelist)
+
+
+    }
+
+});
+
+
+
+var map;
+var ajaxRequest;
+var plotlist;
+var plotlayers=[];
+
+
+//var source = new Proj4js.Proj('EPSG:4326');    //source coordinates will be in Longitude/Latitude, WGS84
+//var dest = new Proj4js.Proj('EPSG:3785');
+
+
+map = new L.Map('map');
+//map.setView([20.82259, -2.8125], 10);
+map.setView([usergeom[1], usergeom[0]], 17);
+map.setMaxBounds([[43.4568551, -3.4492757], [42.9818774, -2.4128145]]);
+
+
+	// set up the map
+	// create the tile layer with correct attribution
+	var osmUrl='http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+	var osmAttrib='Map data © <a href="http://openstreetmap.org">OpenStreetMap</a> contributors';
+	var osm = new L.TileLayer(osmUrl,{minZoom: 5, maxZoom: 24, attribution: osmAttrib,noWrap: true});
+
+map.addLayer(osm)
+
+/* create new layer group */
+var layer_hotels = new L.LayerGroup();
+
+var MARKER = {
+    icon:  L.icon({
+        iconUrl: '{{ STATIC_URL }}images/Hotel.png',
+        iconSize: [50, 50]
+    })
+};
+
+
+var req = $.ajax({
+url: "/hotelapp/get-hotels/",
+dataType: 'json',
+    data : "hoteljson",
+    success: function(data) {
+                    //console.log(data)
+                   L.geoJson(JSON.parse(data), {onEachFeature: onEachFeature})
+                    //map.addLayer(hotels)
+                    map.addLayer(layer_hotels)
+                    }
+
+});
+
+
+var layer_attractions = new L.LayerGroup();
+var ATTMARKER = {
+    icon:  L.icon({
+        iconUrl: '{{ STATIC_URL }}images/attr_icon3.png',
+        iconSize: [30, 30]
+    })
+};
+
+var req = $.ajax({
+url: "/hotelapp/get-attractions/",
+dataType: 'json',
+    data : "attractionjson",
+    success: function(data) {
+                    //console.log(data)
+                   L.geoJson(JSON.parse(data), {onEachFeature: onEachAttFeature})
+                    map.addLayer(layer_attractions)
+                    }
+
+});
+
+/*Info Date-Time Adding*/
+var info = L.control({position: 'topleft'});
+var popyear;
+var popmonth;
+var popday;
+var pophour;
+
+info.onAdd = function (map) {
+    this._div = L.DomUtil.create('div', 'info'); // create a div with a class "info"
+    popyear={{ popyear }}
+    popmonth={{ popmonth }}
+    popday={{ popday }};
+    pophour={{ pophour }};
+    usersHotelName = "";
+    this._div.innerHTML = '<h4>Pass-Key Hotel System</h4><br/><i>'+userHotelName+'</i><br/>'+ '<b> Date Time:' +popyear +'-'+popmonth+'-'+popday +' '+pophour +':00</b><br />';
+
+    return this._div;
+
+};
+
+info.addTo(map);
+
+/* create new layer group */
+var layer_population = new L.LayerGroup();
+var population_json={{ populationjson |safe}};
+//console.log(population_json)
+try{
+    L.geoJson(population_json, {onEachFeature: onEachPopnFeature,style: style})
+    var legend = L.control({position: 'bottomright'});
+
+legend.onAdd = function (map) {
+
+    var div = L.DomUtil.create('div', 'info legend'),
+        grades = [0,2.5,5, 10, 25, 50, 100, 250, 500, 1000],
+        labels = [];
+
+    // loop through our density intervals and generate a label with a colored square for each interval
+    for (var i = 0; i < grades.length; i++) {
+        div.innerHTML +=
+            '<p><i style="background:' + getColor(grades[i]+1) + '"></i> ' +
+            grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '</p>' : '+');
+    }
+
+    return div;
+};
+
+legend.addTo(map);
+}
+catch(ex){
+  console.log(ex.message);
+}
+
+    //L.geoJson(collection, {onEachFeature: onEachFeature}).addTo(map);
+// *** create overlay layers list ... ***
+  var baseLayers = {
+    "OpenStreetMap": osm
+};
+    var overlays = {
+    "Hotels": layer_hotels,
+        "Attractions": layer_attractions,
+        "Population" : layer_population
+  };
+L.control.layers(baseLayers,overlays).addTo(map);
+
+
+
+
+function onEachFeature(feature, layer) {
+
+    var geom;
+
+    geom = feature.geometry.coordinates;
+
+     var content =
+        '<b><p>' + feature.properties.name + '<\/b><br \/>' +
+        'City: ' + feature.properties.city+ '<br \/>' +
+        'Address: ' + feature.properties.address1+ '<br \/>'+
+        'No of Rooms: ' + feature.properties.numberOfRooms+ '<br \/>'+
+        'Hotel Rating: ' + feature.properties.hotelRating+ '<br \/>'+
+        'Confidence Rating: ' + feature.properties.confidenceRating+ '<br \/>'+'<\/p>';
+    var mark=L.marker([geom[1],geom[0]],MARKER).bindPopup(content);;
+    mark.addTo(layer_hotels);
+}
+
+function onEachAttFeature(feature, layer) {
+
+    var geom;
+
+    geom = feature.geometry.coordinates;
+    activity_context="";
+    feature.properties.activity.forEach(function (element, index) {
+    if(index==feature.properties.activity.length-1){activity_context+=element}
+    else{activity_context+=element+","}
+    });
+    type_context="";
+    feature.properties.type.forEach(function (element, index) {
+    if(index==feature.properties.type.length-1){type_context+=element}
+    else{type_context+=element+","}
+    });
+     var content =
+        '<b><p>' + feature.properties.locationName + '<\/b><br \/>' +
+        'Type: ' + type_context+ '<br \/>'+
+        'Activities: ' + activity_context+ '<br \/>'+
+        'City: ' + feature.properties.city+ '<br \/>' +
+        'Address: ' + feature.properties.address+ '<br \/>'+'<\/p>';
+    var mark=L.marker([geom[1],geom[0]],ATTMARKER).bindPopup(content);;
+    mark.addTo(layer_attractions);
+}
+function style(feature) {
+    return {
+        fillColor: getColor(feature.properties.n_people),
+        weight: 1,
+        opacity: 0.3,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7
+    };
+}
+/*var GEOMSTYLE = {
+    fillOpacity: 0.80,
+    fillColor: "#B7440E",
+    opacity: 0.70,
+    color: "#9E3B0E",
+    weight: 0.5,
+    dashArray: ""
+};
+*/
+// Polyfill fo isArray
+if(!Array.isArray) {
+  Array.isArray = function (vArg) {
+    var isArray;
+
+    isArray = vArg instanceof Array;
+
+    return isArray;
+  };
+}
+function onEachPopnFeature(feature, layer) {
+
+    var geom;
+
+    geom = feature.geometry.coordinates;
+    var rings = Array.isArray(geom[0][0]) ? L.GeoJSON.coordsToLatLngs(geom, 1) : _build_linestrings(geom);
+    var poly=L.polygon(rings);
+    poly.setStyle(style(feature))
+    poly.addTo(layer_population);
+}
+
+function _build_linestrings(geom) {
+    var paths = [];
+    for (var j = 0; j < geom.length; j++) {
+        //paths.push(L.PolylineUtil.decode(geom[j]));
+        paths.push(L.Polyline.decode(geom[j]));
+
+    }
+    return paths;
+}
+function getColor(d) {
+    //Max 1672.97, Min 0
+    return d > 1000 ? '#8D193C' :
+           d > 500  ? '#BD0026' :
+           d > 200  ? '#E31A1C' :
+           d > 100  ? '#FC4E2A' :
+           d > 50   ? '#FD8D3C' :
+           d > 25   ? '#FEB24C' :
+           d > 10   ? '#E5C36A' :
+           d > 5   ? '#FED976' :
+           d > 2.5   ? '#FEE191' :
+                      '#FFEDA0';
+    //d=Math.log(d)
+    /*return d > 3 ? '#8D193C' :
+           d > 2.66  ? '#BD0026' :
+           d > 2.3  ? '#E31A1C' :
+           d > 2  ? '#FC4E2A' :
+           d > 1.66   ? '#FD8D3C' :
+           d > 1.33   ? '#FEB24C' :
+           d > 1   ? '#E5C36A' :
+           d > 0.66   ? '#FED976' :
+           d > 0.33   ? '#FEE191' :
+                      '#FFEDA0';*/
+}
+
+
+</script>
+
+
+{% endblock %}
